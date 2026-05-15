@@ -1,0 +1,94 @@
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+import base64
+import io
+from PIL import Image
+import numpy as np
+
+app = FastAPI(title="SkinSense AI Mock API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mock response data
+MOCK_RESPONSE = {
+    "regions_detected": 4,
+    "processed": 2,
+    "confidence": 0.75,
+    "severity": "Medium",
+    "face_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",  # 1x1 transparent PNG
+    "heatmap": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "regions": [
+        {
+            "region": "forehead",
+            "display_name": "Forehead",
+            "issue": "Acne",
+            "confidence": 85.5,
+            "severity": "Moderate",
+            "recommendation": "Use salicylic acid cleanser",
+            "region_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        },
+        {
+            "region": "left_cheek",
+            "display_name": "Left Cheek",
+            "issue": "Normal",
+            "confidence": 95.2,
+            "severity": "No Significant Issue",
+            "recommendation": None,
+            "region_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        },
+        {
+            "region": "right_cheek",
+            "display_name": "Right Cheek",
+            "issue": "Pigmentation",
+            "confidence": 72.3,
+            "severity": "Mild",
+            "recommendation": "Apply vitamin C serum",
+            "region_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        },
+        {
+            "region": "chin",
+            "display_name": "Chin",
+            "issue": "Normal",
+            "confidence": 88.9,
+            "severity": "No Significant Issue",
+            "recommendation": None,
+            "region_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        }
+    ],
+    "overall": {
+        "primary_concern": "Acne",
+        "average_score": 85.5,
+        "per_issue_avg": {
+            "Acne": 85.5,
+            "Pigmentation": 72.3,
+            "Redness": 0.0
+        },
+        "severity": "Moderate",
+        "recommendation": "Use salicylic acid cleanser"
+    }
+}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.post("/analyze")
+async def analyze(image: UploadFile = File(...)):
+    """
+    Mock analyze endpoint that returns dummy data
+    """
+    # Simulate processing time
+    import time
+    time.sleep(2)
+
+    return MOCK_RESPONSE
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
