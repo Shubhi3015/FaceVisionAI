@@ -32,6 +32,10 @@ RUN cd /app/frontend \
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run from backend/ so imports like `from pipeline...` resolve correctly
+WORKDIR /app/backend
+
+CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
 
 
