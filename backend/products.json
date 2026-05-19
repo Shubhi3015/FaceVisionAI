@@ -1,0 +1,74 @@
+[
+  {
+    "Primary Concern": "Acne",
+    "Recommended Severity": "Mild",
+    "Product Name": "CeraVe Acne Foaming Cream Cleanser (4% Benzoyl Peroxide)",
+    "Company": "CeraVe",
+    "Medication Type": "Benzoyl Peroxide",
+    "Product URL": "https://www.cerave.com/skincare/cleansers/acne-foaming-cream-cleanser"
+  },
+  {
+    "Primary Concern": "Acne",
+    "Recommended Severity": "Mild/Moderate",
+    "Product Name": "La Roche-Posay Effaclar Duo Acne Treatment",
+    "Company": "La Roche-Posay",
+    "Medication Type": "Benzoyl Peroxide + LHA",
+    "Product URL": "https://www.laroche-posay.us/effaclar-duo-dual-action-acne-treatment-40ml-000.html"
+  },
+  {
+    "Primary Concern": "Acne",
+    "Recommended Severity": "Moderate/Severe",
+    "Product Name": "PanOxyl Acne Foaming Wash (10% Benzoyl Peroxide)",
+    "Company": "PanOxyl",
+    "Medication Type": "Benzoyl Peroxide",
+    "Product URL": "https://www.panoxyl.com/products/acne-foaming-wash"
+  },
+  {
+    "Primary Concern": "Redness",
+    "Recommended Severity": "Mild",
+    "Product Name": "Aveeno Calm + Restore Oat Gel Moisturizer",
+    "Company": "Aveeno",
+    "Medication Type": "Oat + Feverfew",
+    "Product URL": "https://www.aveeno.com/products/calm-and-restore-oat-gel-moisturizer"
+  },
+  {
+    "Primary Concern": "Redness",
+    "Recommended Severity": "Mild/Moderate",
+    "Product Name": "La Roche-Posay Toleriane Double Repair Face Moisturizer",
+    "Company": "La Roche-Posay",
+    "Medication Type": "Ceramide + Niacinamide",
+    "Product URL": "https://www.laroche-posay.us/toleriane-double-repair-face-moisturizer-000.html"
+  },
+  {
+    "Primary Concern": "Redness",
+    "Recommended Severity": "Moderate/Severe",
+    "Product Name": "CeraVe PM Facial Moisturizing Lotion",
+    "Company": "CeraVe",
+    "Medication Type": "Niacinamide + Ceramides",
+    "Product URL": "https://www.cerave.com/skincare/moisturizers/pm-facial-moisturizing-lotion"
+  },
+  {
+    "Primary Concern": "Pigmentation",
+    "Recommended Severity": "Mild",
+    "Product Name": "CeraVe Vitamin C Serum with Hyaluronic Acid",
+    "Company": "CeraVe",
+    "Medication Type": "Vitamin C",
+    "Product URL": "https://www.cerave.com/skincare/serums/vitamin-c-serum"
+  },
+  {
+    "Primary Concern": "Pigmentation",
+    "Recommended Severity": "Mild/Moderate",
+    "Product Name": "La Roche-Posay Mela B3 Dark Spot Serum",
+    "Company": "La Roche-Posay",
+    "Medication Type": "Melasyl + Niacinamide",
+    "Product URL": "https://www.laroche-posay.us/mela-b3-dark-spot-serum-with-melasyl-niacinamide-000.html"
+  },
+  {
+    "Primary Concern": "Pigmentation",
+    "Recommended Severity": "Moderate/Severe",
+    "Product Name": "Neutrogena Rapid Tone Repair Retinol + Vitamin C",
+    "Company": "Neutrogena",
+    "Medication Type": "Retinol + Vitamin C",
+    "Product URL": "https://www.neutrogena.com/products/skincare/rapid-tone-repair-retinol-vitamin-c-dark-spot-corrector/6811047"
+  }
+]

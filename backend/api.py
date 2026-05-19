@@ -1,7 +1,9 @@
 import os
 import base64
+from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,10 +12,28 @@ import numpy as np
 from PIL import Image, ImageOps
 import torch
 from torchvision import transforms
+from sqlalchemy.orm import Session
 
 from pipeline.stage_04_geometry import RegionExtractionPipeline
 from inference.ensemble_predict import predict_issue
 from recommendation import recommend_product
+from skincare_chat import (
+    SkincareChatRequest,
+    SkincareChatResponse,
+    generate_skincare_reply,
+    sanitize_reply,
+)
+from database import get_db, init_db
+from auth import get_optional_user
+from auth_routes import router as auth_router
+from user_api import router as user_router, save_user_scan
+from models import User
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,7 +44,7 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-app = FastAPI(title="FaceVision AI – Skin Analyzer API")
+app = FastAPI(title="FaceVision AI – Skin Analyzer API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +66,9 @@ UI_BUILD_DIR = os.environ.get("UI_BUILD_DIR", os.path.join(BASE_DIR, "dist"))
 
 # Initialize once (heavy models)
 region_pipeline = RegionExtractionPipeline(output_root="data/processed")
+
+app.include_router(auth_router)
+app.include_router(user_router)
 
 
 # ------------------------------------------------------------------ #
@@ -148,6 +171,18 @@ def health():
     return {"status": "ok"}
 
 
+# ------------------------------------------------------------------ #
+#  /skincare-chat  – general skincare guidance (LLM or built-in)      #
+# ------------------------------------------------------------------ #
+@app.post("/skincare-chat", response_model=SkincareChatResponse)
+def skincare_chat(body: SkincareChatRequest):
+    """
+    Educational skincare Q&A. Optional: set OPENAI_API_KEY for OpenAI-powered replies.
+    """
+    reply = sanitize_reply(generate_skincare_reply(body.messages))
+    return SkincareChatResponse(reply=reply)
+
+
 @app.get("/")
 def root():
     if os.path.isdir(UI_BUILD_DIR):
@@ -195,7 +230,11 @@ async def predict(file: UploadFile = File(...)):
 #  }                                                                  #
 # ------------------------------------------------------------------ #
 @app.post("/analyze")
-async def analyze(image: UploadFile = File(...)):
+async def analyze(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User | None, Depends(get_optional_user)],
+    image: UploadFile = File(...),
+):
     """
     React frontend endpoint.
     Accepts field name 'image' (FormData), returns AnalysisResult shape.
@@ -242,7 +281,7 @@ async def analyze(image: UploadFile = File(...)):
     else:
         heatmap_b64 = face_b64
 
-    return {
+    response = {
         # Frontend AnalysisResult fields
         "regions_detected": len(regions),
         "processed": len(non_normal),
@@ -254,6 +293,12 @@ async def analyze(image: UploadFile = File(...)):
         "regions": regions,
         "overall": overall,
     }
+
+    if current_user is not None:
+        scan = save_user_scan(db, current_user.id, response)
+        response["scan_id"] = scan.id
+
+    return response
 
 
 # ------------------------------------------------------------------ #

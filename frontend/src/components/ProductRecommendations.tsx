@@ -1,8 +1,22 @@
 import { motion } from 'framer-motion';
-import { ShoppingCart, ExternalLink, AlertCircle } from 'lucide-react';
-import type { RegionResult } from '../types';
+import { ShoppingCart, ExternalLink, AlertCircle, Sparkles } from 'lucide-react';
+import type { RegionResult, UserProfile } from '../types';
 
-export const ProductRecommendations = ({ regions }: { regions: RegionResult[] }) => {
+const SKIN_TIPS: Record<string, string> = {
+  Dry: 'Layer a richer moisturizer after actives; avoid over-cleansing.',
+  Oily: 'Use non-comedogenic, lightweight formulas; don’t skip moisturizer.',
+  Combination: 'Balance: lighter products on T-zone, richer on dry areas.',
+  Sensitive: 'Patch-test new products; introduce one active at a time.',
+  Normal: 'Maintain consistency with cleanser, moisturizer, and daily SPF.',
+};
+
+export const ProductRecommendations = ({
+  regions,
+  profile,
+}: {
+  regions: RegionResult[];
+  profile?: UserProfile | null;
+}) => {
   const affectedRegions = regions.filter((r) => r.issue !== 'Normal');
 
   if (affectedRegions.length === 0) {
@@ -27,6 +41,29 @@ export const ProductRecommendations = ({ regions }: { regions: RegionResult[] })
 
   return (
     <div>
+      {profile?.skin_type && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/15 flex gap-3"
+        >
+          <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-text">
+              Tips for {profile.skin_type} skin
+            </p>
+            <p className="text-sm text-muted mt-1">
+              {SKIN_TIPS[profile.skin_type] ?? SKIN_TIPS.Normal}
+            </p>
+            {profile.allergies && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                ⚠ Check labels for your allergies: {profile.allergies}
+              </p>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       <h3 className="text-2xl font-bold mb-6 text-text">Recommended Products</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {affectedRegions.map((region, idx) => (

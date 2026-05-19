@@ -10,10 +10,10 @@ export interface RegionResult {
   region: string;
   display_name: string;
   issue: "Acne" | "Redness" | "Pigmentation" | "Normal";
-  confidence: number;   // 0–100
+  confidence: number;
   severity: string;
   recommendation: ProductRecommendation | null;
-  region_image: string; // base64 PNG
+  region_image?: string;
 }
 
 export interface OverallResult {
@@ -24,19 +24,54 @@ export interface OverallResult {
   recommendation: ProductRecommendation | null;
 }
 
-// ---- Main shape returned by POST /analyze ----
 export interface AnalysisResult {
-  // Summary fields (used by StatsCards, SeverityBadge, etc.)
   regions_detected: number;
   processed: number;
-  confidence: number;   // 0.0–1.0
+  confidence: number;
   severity: "Low" | "Medium" | "High";
-  face_image: string;   // base64 PNG
-  heatmap: string;      // base64 PNG
-
-  // Detailed fields (used by RegionCards, OverallPanel)
+  face_image?: string;
+  heatmap?: string;
   regions: RegionResult[];
   overall: OverallResult;
+  scan_id?: number;
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  onboarding_completed: boolean;
+  age?: number | null;
+  gender?: string | null;
+  skin_type?: string | null;
+  allergies?: string | null;
+  current_products?: string | null;
+}
+
+export interface ScanSummary {
+  id: number;
+  created_at: string;
+  severity: string;
+  confidence: number;
+  regions_detected: number;
+  processed: number;
+  primary_concern: string;
+}
+
+export interface AnalyticsData {
+  total_scans: number;
+  average_confidence: number;
+  most_common_condition: string | null;
+  condition_counts: Record<string, number>;
+  severity_counts: Record<string, number>;
+  confidence_by_month: { month: string; average: number }[];
+}
+
+export interface OnboardingData {
+  age: number;
+  gender: string;
+  skin_type: string;
+  allergies: string;
+  current_products: string;
 }
 
 export type UploadMode = "upload" | "camera";

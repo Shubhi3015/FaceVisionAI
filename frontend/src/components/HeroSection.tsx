@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 
 export const HeroSection = ({ onStartAnalysis }: { onStartAnalysis: () => void }) => {
   return (
-    <section className="relative py-12 sm:py-20 md:py-28 lg:py-32 bg-gradient-to-br from-primary/5 via-primary/10 to-secondary/5 overflow-hidden">
+    <section id="home" className="relative py-12 sm:py-20 md:py-28 lg:py-32 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 overflow-hidden">
       {/* Floating decorative elements */}
       <motion.div
         animate={{ y: [0, -20, 0] }}
@@ -28,12 +28,12 @@ export const HeroSection = ({ onStartAnalysis }: { onStartAnalysis: () => void }
             transition={{ duration: 0.8 }}
             className="text-center md:text-left"
           >
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-text mb-4 sm:mb-6 md:mb-8 leading-tight">
-              Advanced Skin
-              <span className="block text-primary">Analysis AI</span>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-text mb-4 sm:mb-6 md:mb-8 leading-tight">
+              Your personal
+              <span className="block gradient-text">Skin Intelligence</span>
             </h1>
-            <p className="text-base sm:text-lg text-text/70 mb-8 sm:mb-10 md:mb-12 leading-relaxed max-w-xl md:max-w-none mx-auto md:mx-0">
-              Upload your skin image and get AI-powered analysis for acne, pigmentation, and redness detection.
+            <p className="text-base sm:text-lg text-muted mb-8 sm:mb-10 md:mb-12 leading-relaxed max-w-xl md:max-w-none mx-auto md:mx-0">
+              AI-powered analysis, personalized guidance, and a dashboard to track your skin journey.
             </p>
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}

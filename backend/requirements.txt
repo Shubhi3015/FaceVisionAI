@@ -12,3 +12,7 @@ transformers
 tqdm
 pandas
 openpyxl
+sqlalchemy
+passlib
+python-jose[cryptography]
+email-validator

@@ -1,15 +1,16 @@
 import { motion } from "framer-motion";
-import type { AnalysisResult } from "../types";
+import type { AnalysisResult, UserProfile } from "../types";
 import { RegionCard } from "./RegionCard";
 import { OverallSummary } from "./OverallSummary";
 import { ProductRecommendations } from "./ProductRecommendations";
 import { ReportGenerator } from "./ReportGenerator";
- 
+
 interface Props {
   results: AnalysisResult;
+  profile?: UserProfile | null;
 }
- 
-export const ResultsDashboard = ({ results }: Props) => {
+
+export const ResultsDashboard = ({ results, profile }: Props) => {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -17,7 +18,15 @@ export const ResultsDashboard = ({ results }: Props) => {
       transition={{ duration: 0.4 }}
       className="w-full space-y-12 px-4"
     >
-      {/* Overall assessment */}
+      {profile?.skin_type && (
+        <div className="max-w-5xl mx-auto glass-card rounded-2xl p-4 text-sm text-text">
+          <span className="font-semibold text-primary">Personalized for you:</span>{' '}
+          {profile.skin_type} skin
+          {profile.allergies ? ` · avoid: ${profile.allergies}` : ''}
+          {profile.current_products ? ` · building on your current routine` : ''}
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto">
         <OverallSummary overall={results.overall} />
       </div>
@@ -41,7 +50,7 @@ export const ResultsDashboard = ({ results }: Props) => {
 
       {/* Product Recommendations */}
       <div className="max-w-5xl mx-auto">
-        <ProductRecommendations regions={results.regions} />
+        <ProductRecommendations regions={results.regions} profile={profile} />
       </div>
 
       {/* Report & Share Actions */}
