@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Ensures backend.api serves the UI from backend/dist
 RUN cd /app/frontend \
     && npm ci \
-    && npm run build \
+    && VITE_API_URL= npm run build \
     && rm -rf /app/backend/dist \
     && cp -r /app/frontend/dist /app/backend/dist
 
