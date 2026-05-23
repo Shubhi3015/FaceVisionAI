@@ -7,9 +7,19 @@ import type {
   UserProfile,
 } from "../types";
 
+const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
+const isLocalApiUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(
+  configuredApiUrl
+);
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? "http://localhost:8000" : "");
+  configuredApiUrl && (import.meta.env.DEV || !isLocalApiUrl)
+    ? configuredApiUrl
+    : import.meta.env.DEV
+    ? "http://localhost:8000"
+    : "";
+const API_TARGET_LABEL =
+  API_BASE_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "this site");
 
 const TOKEN_KEY = "facevision_token";
 
@@ -45,7 +55,7 @@ export function getApiErrorMessage(
       return "Analysis timed out. On CPU the first scan can take 1–2 minutes — please wait and try again.";
     }
     if (!err.response) {
-      return "Cannot reach the backend. Ensure it is running at http://localhost:8000, then refresh this page.";
+      return `Cannot reach the backend at ${API_TARGET_LABEL}. Please refresh this page and try again.`;
     }
     const detail = err.response.data?.detail;
     if (typeof detail === "string") return detail;
