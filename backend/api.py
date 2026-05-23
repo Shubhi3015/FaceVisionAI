@@ -17,7 +17,7 @@ from torchvision import transforms
 from database import get_db, init_db
 from auth import get_optional_user
 from auth_routes import router as auth_router
-from inference.ensemble_predict import predict_issue
+from inference.ensemble_predict import ModelUnavailableError, predict_issue
 from models import User
 from pipeline.stage_04_geometry import RegionExtractionPipeline
 from recommendation import recommend_product
@@ -104,7 +104,10 @@ def _run_analysis(image_np: np.ndarray) -> dict:
         display_name = display_names.get(name, name)
 
         region_tensor = transform(Image.fromarray(region)).unsqueeze(0).to(device)  # type: ignore
-        issue, percent, _ = predict_issue(region_tensor)
+        try:
+            issue, percent, _ = predict_issue(region_tensor)
+        except ModelUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         product, severity = recommend_product(issue, percent)
 
         region_pil = Image.fromarray(region).convert("RGB")
@@ -276,4 +279,3 @@ if os.path.isdir(UI_BUILD_DIR):
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         return FileResponse(os.path.join(UI_BUILD_DIR, "index.html"))
-

@@ -8,6 +8,16 @@ from inference.thresholds import THRESHOLD
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+REDNESS_MODEL_PATH = ROOT_DIR / "models" / "redness_model.pth"
+ACNE_PIG_MODEL_PATH = ROOT_DIR / "models" / "acne_pigmentation_model.pth"
+
+
+class ModelUnavailableError(RuntimeError):
+    """Raised when trained model weights are not available in the deployment."""
+
+
+redness_model = None
+acne_pig_model = None
 
 
 # ---------------- REDNESS MODEL (ConvNeXt) ----------------
@@ -35,13 +45,30 @@ def load_acne_pig_model(path):
     return model
 
 
-# ---------------- Load Models ----------------
-redness_model = load_redness_model(str(ROOT_DIR / "models" / "redness_model.pth"))
-acne_pig_model = load_acne_pig_model(str(ROOT_DIR / "models" / "acne_pigmentation_model.pth"))
+def get_models():
+    global redness_model, acne_pig_model
+
+    missing = [
+        str(path.relative_to(ROOT_DIR))
+        for path in (REDNESS_MODEL_PATH, ACNE_PIG_MODEL_PATH)
+        if not path.exists()
+    ]
+    if missing:
+        raise ModelUnavailableError(
+            "Model weights are missing from this deployment: " + ", ".join(missing)
+        )
+
+    if redness_model is None:
+        redness_model = load_redness_model(str(REDNESS_MODEL_PATH))
+    if acne_pig_model is None:
+        acne_pig_model = load_acne_pig_model(str(ACNE_PIG_MODEL_PATH))
+
+    return redness_model, acne_pig_model
 
 
 # ---------------- Prediction Function ----------------
 def predict_issue(region_tensor):
+    redness_model, acne_pig_model = get_models()
 
     # -------- Stage 1: Redness --------
     with torch.no_grad():
