@@ -3,19 +3,23 @@ import base64
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import io
+import numpy as np
+import torch
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import io
-import numpy as np
 from PIL import Image, ImageOps
-import torch
-from torchvision import transforms
 from sqlalchemy.orm import Session
+from torchvision import transforms
 
-from pipeline.stage_04_geometry import RegionExtractionPipeline
+from database import get_db, init_db
+from auth import get_optional_user
+from auth_routes import router as auth_router
 from inference.ensemble_predict import predict_issue
+from models import User
+from pipeline.stage_04_geometry import RegionExtractionPipeline
 from recommendation import recommend_product
 from skincare_chat import (
     SkincareChatRequest,
@@ -23,11 +27,7 @@ from skincare_chat import (
     generate_skincare_reply,
     sanitize_reply,
 )
-from database import get_db, init_db
-from auth import get_optional_user
-from auth_routes import router as auth_router
 from user_api import router as user_router, save_user_scan
-from models import User
 
 
 @asynccontextmanager
@@ -38,11 +38,13 @@ async def lifespan(app: FastAPI):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+transform = transforms.Compose(
+    [
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ]
+)
 
 app = FastAPI(title="FaceVision AI – Skin Analyzer API", lifespan=lifespan)
 
@@ -64,24 +66,25 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UI_BUILD_DIR = os.environ.get("UI_BUILD_DIR", os.path.join(BASE_DIR, "dist"))
 
-# Initialize once (heavy models)
-region_pipeline = RegionExtractionPipeline(output_root="data/processed")
+# Initialize once (heavy models) - LAZY to avoid high RAM usage on container startup
+region_pipeline: RegionExtractionPipeline | None = None
+
+
+def get_region_pipeline() -> RegionExtractionPipeline:
+    global region_pipeline
+    if region_pipeline is None:
+        region_pipeline = RegionExtractionPipeline(output_root="data/processed")
+    return region_pipeline
+
 
 app.include_router(auth_router)
 app.include_router(user_router)
 
 
-# ------------------------------------------------------------------ #
-#  Shared analysis logic (used by both /predict and /analyze)         #
-# ------------------------------------------------------------------ #
 def _run_analysis(image_np: np.ndarray) -> dict:
-    """
-    Core analysis pipeline.
-    Returns a dict with:
-      - regions: list of per-region results
-      - overall: aggregated result
-    """
-    regions = region_pipeline.process_image(image_np, name="input", save_outputs=False)
+    """Core analysis pipeline."""
+    regions = get_region_pipeline().process_image(image_np, name="input", save_outputs=False)
+
     if not regions:
         raise HTTPException(status_code=400, detail="No valid face/regions detected.")
 
@@ -94,7 +97,7 @@ def _run_analysis(image_np: np.ndarray) -> dict:
 
     overall_scores = {"Acne": 0.0, "Redness": 0.0, "Pigmentation": 0.0}
     issue_count = {"Acne": 0, "Redness": 0, "Pigmentation": 0}
-    region_results = []
+    region_results: list[dict] = []
 
     for name, region_data in regions.items():
         region = region_data["image"]
@@ -104,21 +107,22 @@ def _run_analysis(image_np: np.ndarray) -> dict:
         issue, percent, _ = predict_issue(region_tensor)
         product, severity = recommend_product(issue, percent)
 
-        # Encode region image as base64
         region_pil = Image.fromarray(region).convert("RGB")
         buf = io.BytesIO()
         region_pil.save(buf, format="PNG")
         region_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-        region_results.append({
-            "region": name,
-            "display_name": display_name,
-            "issue": issue,
-            "confidence": percent,
-            "severity": severity,
-            "recommendation": product,
-            "region_image": region_b64,
-        })
+        region_results.append(
+            {
+                "region": name,
+                "display_name": display_name,
+                "issue": issue,
+                "confidence": percent,
+                "severity": severity,
+                "recommendation": product,
+                "region_image": region_b64,
+            }
+        )
 
         if issue != "Normal":
             overall_scores[issue] += percent
@@ -132,9 +136,7 @@ def _run_analysis(image_np: np.ndarray) -> dict:
             for k in overall_scores
         }
         dominant_issue = max(avg_scores, key=avg_scores.get)  # type: ignore
-        overall_product, overall_severity = recommend_product(
-            dominant_issue, avg_scores[dominant_issue]
-        )
+        overall_product, overall_severity = recommend_product(dominant_issue, avg_scores[dominant_issue])
         overall = {
             "primary_concern": dominant_issue,
             "average_score": round(avg_scores[dominant_issue], 2),
@@ -163,22 +165,13 @@ def _build_composite_image(image_np: np.ndarray) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-# ------------------------------------------------------------------ #
-#  /health                                                             #
-# ------------------------------------------------------------------ #
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 
-# ------------------------------------------------------------------ #
-#  /skincare-chat  – general skincare guidance (LLM or built-in)      #
-# ------------------------------------------------------------------ #
 @app.post("/skincare-chat", response_model=SkincareChatResponse)
 def skincare_chat(body: SkincareChatRequest):
-    """
-    Educational skincare Q&A. Optional: set OPENAI_API_KEY for OpenAI-powered replies.
-    """
     reply = sanitize_reply(generate_skincare_reply(body.messages))
     return SkincareChatResponse(reply=reply)
 
@@ -187,18 +180,16 @@ def skincare_chat(body: SkincareChatRequest):
 def root():
     if os.path.isdir(UI_BUILD_DIR):
         return FileResponse(os.path.join(UI_BUILD_DIR, "index.html"))
-    return {"message": "FaceVision AI – Skin Analyzer API", "docs": "/docs", "health": "/health"}
+    return {
+        "message": "FaceVision AI – Skin Analyzer API",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
-# ------------------------------------------------------------------ #
-#  /predict  – original detailed endpoint (kept for Streamlit / tests) #
-# ------------------------------------------------------------------ #
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    """
-    Returns full per-region breakdown.
-    Used by the Streamlit app and direct API consumers.
-    """
+    """Returns full per-region breakdown."""
     if file.content_type is None or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload an image file.")
 
@@ -213,32 +204,13 @@ async def predict(file: UploadFile = File(...)):
     return _run_analysis(image_np)
 
 
-# ------------------------------------------------------------------ #
-#  /analyze  – React frontend endpoint                                #
-#                                                                     #
-#  Contract (matches src/types/index.ts AnalysisResult):             #
-#  {                                                                  #
-#    regions_detected: number,    // total regions found              #
-#    processed: number,           // regions with detected issues     #
-#    confidence: number,          // 0–1 overall confidence           #
-#    severity: "Low"|"Medium"|"High",                                 #
-#    face_image: string,          // base64 PNG of original face      #
-#    heatmap: string,             // base64 PNG – first affected      #
-#                                 //   region image (or same as face) #
-#    regions: RegionResult[],     // per-region detail array          #
-#    overall: OverallResult,      // aggregate result                 #
-#  }                                                                  #
-# ------------------------------------------------------------------ #
 @app.post("/analyze")
 async def analyze(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User | None, Depends(get_optional_user)],
     image: UploadFile = File(...),
 ):
-    """
-    React frontend endpoint.
-    Accepts field name 'image' (FormData), returns AnalysisResult shape.
-    """
+    """React frontend endpoint."""
     if image.content_type is None or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload an image file.")
 
@@ -255,7 +227,6 @@ async def analyze(
     regions: list = result["regions"]
     overall: dict = result["overall"]
 
-    # ---- Map internal severity string → frontend Low/Medium/High ----
     severity_raw: str = overall.get("severity", "No Significant Issue")
     severity_map = {
         "No Significant Issue": "Low",
@@ -265,31 +236,22 @@ async def analyze(
     }
     frontend_severity = severity_map.get(severity_raw, "Low")
 
-    # ---- Aggregate confidence: average of non-Normal region confidences ----
     non_normal = [r for r in regions if r["issue"] != "Normal"]
     if non_normal:
         avg_confidence = sum(r["confidence"] for r in non_normal) / len(non_normal) / 100.0
     else:
         avg_confidence = 0.0
 
-    # ---- face_image: full original frame ----
     face_b64 = _build_composite_image(image_np)
-
-    # ---- heatmap: first affected region image, or face if all normal ----
-    if non_normal:
-        heatmap_b64 = non_normal[0]["region_image"]
-    else:
-        heatmap_b64 = face_b64
+    heatmap_b64 = non_normal[0]["region_image"] if non_normal else face_b64
 
     response = {
-        # Frontend AnalysisResult fields
         "regions_detected": len(regions),
         "processed": len(non_normal),
         "confidence": round(avg_confidence, 4),
         "severity": frontend_severity,
         "face_image": face_b64,
         "heatmap": heatmap_b64,
-        # Extended fields (frontend uses these for per-region detail)
         "regions": regions,
         "overall": overall,
     }
@@ -301,11 +263,12 @@ async def analyze(
     return response
 
 
-# ------------------------------------------------------------------ #
-#  UI (Production SPA)                                                #
-# ------------------------------------------------------------------ #
 if os.path.isdir(UI_BUILD_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(UI_BUILD_DIR, "assets")), name="assets")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=os.path.join(UI_BUILD_DIR, "assets")),
+        name="assets",
+    )
 
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
@@ -313,3 +276,4 @@ if os.path.isdir(UI_BUILD_DIR):
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         return FileResponse(os.path.join(UI_BUILD_DIR, "index.html"))
+
