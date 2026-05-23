@@ -2,6 +2,13 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+ENV PYTHONUNBUFFERED=1 \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    MALLOC_TRIM_THRESHOLD_=65536
+
 # System deps (often required for opencv) + curl for Node setup
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 gcc curl ca-certificates \
